@@ -6,17 +6,7 @@
 #
 #  This script implements the baseline Implicit-Explicit Local Differential
 #  Transform Method (IELDTM) coupled with global-in-time Chebyshev spectral
-#  collocation (ChSCM) for the 1D Burgers-Fisher equation. The solver follows
-#  the formulation described in:
-#
-#      E. Celik, H. Tunc, M. Sari, N. Guzel,
-#      "An Adaptive Multi-Interval Numerical Method with Neural-Guided Mesh
-#       Refinement for Parametric ADR Equations", IEEE Access (under review).
-#
-#  This baseline implementation is provided for reference purposes only.
-#  The multi-interval (IELDTM-MIChSCM), adaptive (AIELDTM-MIChSCM), and
-#  neural-network-based (PGA-DNN) extensions reported in the manuscript will
-#  be released after the paper has been accepted for publication.
+#  collocation (ChSCM) for the 1D Burgers-Fisher equation. 
 # =============================================================================
 
 import numpy as np
@@ -37,7 +27,7 @@ alfa   = 0.5         # Internal collocation parameter theta in [0, 1]
                      # used for the C^0 / C^1 continuity matching points
 
 # Physical parameters of the Burgers-Fisher equation
-v      = 2**(0)      # Diffusion coefficient (epsilon in the manuscript)
+v      = 2**(-8)      # Diffusion coefficient (epsilon in the manuscript)
 V      = 0.001       # Advection coefficient alpha
 beta   = 0.001       # Reaction coefficient beta
 
