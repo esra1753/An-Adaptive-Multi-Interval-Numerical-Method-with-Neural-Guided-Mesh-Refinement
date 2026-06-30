@@ -1,10 +1,10 @@
 # =============================================================================
-#  Data-driven adaptive MLP framework for the one-dimensional Burgers equation
+#  PGA-DNN framework for the one-dimensional Burgers equation
 # -----------------------------------------------------------------------------
 #  Mapping:     (x, t, epsilon) -> u(x,t;epsilon)
 #  Residual:    R = u_t - epsilon*u_xx + V*u*u_x + beta*(u - u^2)
 #
-#  This script generates numerical solution data with an IELDTM-MI solver,
+#  This script generates numerical solution data with an AIELDTM-MIChSCM solver,
 #  trains a parametric neural network, adaptively enriches the training set
 #  according to PINN-type residual indicators, and finally visualizes only
 #  the exact solution, the approximate solution, and the error heatmap.
@@ -29,8 +29,8 @@ TO     = 4       # Order of the local Taylor series expansion in space
 tf     = 1.0    # Final time
 sub_dt = 0.2    # Length of each time subinterval
 alfa   = 0.5    # Internal collocation parameter for C^0/C^1 matching
-V      = 1      # Coefficient of the nonlinear advection term u*u_x
-beta   = 0      # Reaction coefficient
+V      = 0.01      # Coefficient of the nonlinear advection term u*u_x
+beta   = 0.01      # Reaction coefficient
 xb, xf = 0.0, 1.0  # Spatial domain [xb, xf]
 
 # Adaptive training settings
@@ -42,7 +42,7 @@ TOP_K              = 3     # Number of most difficult diffusion values added per
 RES_NX, RES_NT     = 96, 64  # Residual grid resolution used for diffusion-parameter selection
 
 # Adaptive x-mesh settings used for selected diffusion values
-ADAPT_TIME_PROBES        = 10   # Number of time probes in each time subinterval
+ADAPT_TIME_PROBES        = 5   # Number of time probes in each time subinterval
 ADAPT_INSERT_POINTS_FACT = 1.0  # Relative amount of inserted interior points per time segment
 
 t_points = np.arange(0.0, tf + 1e-12, sub_dt)   # Time-subinterval endpoints
