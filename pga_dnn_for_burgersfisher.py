@@ -1,10 +1,10 @@
 # =============================================================================
-#  PGA-DNN framework for the one-dimensional Burgers equation
+#  Data-driven adaptive MLP framework for the one-dimensional Burgers equation
 # -----------------------------------------------------------------------------
 #  Mapping:     (x, t, epsilon) -> u(x,t;epsilon)
 #  Residual:    R = u_t - epsilon*u_xx + V*u*u_x + beta*(u - u^2)
 #
-#  This script generates numerical solution data with an AIELDTM-MIChSCM solver,
+#  This script generates numerical solution data with an IELDTM-MI solver,
 #  trains a parametric neural network, adaptively enriches the training set
 #  according to PINN-type residual indicators, and finally visualizes only
 #  the exact solution, the approximate solution, and the error heatmap.
@@ -18,7 +18,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import TensorDataset, DataLoader
 import matplotlib.pyplot as plt
-import pandas as pd
 import math
 
 # -----------------------------------------------------------------------------
@@ -615,7 +614,7 @@ def build_dataset_for_v_with_mesh_list(nu, x_mesh_list_v, include_bc=True, verbo
     return np.vstack(X_parts), np.vstack(y_parts)
 
 # -----------------------------------------------------------------------------
-# 14) Error metrics and Excel report utilities
+# 14) Error metrics utilities
 # -----------------------------------------------------------------------------
 def exact_u_from_X(X):
     x = X[:,0]; t = X[:,1]; vv = X[:,2]
@@ -645,64 +644,6 @@ def print_metrics_by_v(title, X, y_true, y_pred, v_values):
         mxe  = float(np.max(np.abs(diff)))
         print(f"  v={nu:.6g}: RMSE={rmse:.3e} | MAE={mae:.3e} | MaxAbs={mxe:.3e}")
 
-def _metrics_dict(y_true, y_pred):
-    diff = y_pred - y_true
-    mse  = float(np.mean(diff**2))
-    return {
-        "count": int(y_true.size),
-        "MSE": mse,
-        "RMSE": float(np.sqrt(mse)),
-        "MAE": float(np.mean(np.abs(diff))),
-        "MaxAbs": float(np.max(np.abs(diff))),
-    }
-
-def export_errors_to_excel(X, y_exact, y_solver, y_pred, v_values,
-                           path="errors_report_adaptive.xlsx", save_pointwise=True):
-    overall = [
-        dict(kind="Solver_vs_Exact", **_metrics_dict(y_exact, y_solver)),
-        dict(kind="NN_vs_Exact",     **_metrics_dict(y_exact, y_pred)),
-        dict(kind="NN_vs_Solver",    **_metrics_dict(y_solver, y_pred)),
-    ]
-    df_overall = pd.DataFrame(overall)
-    rows = []
-    for nu in v_values:
-        mask = (np.abs(X[:,2]-nu) <= 1e-15) | (np.isclose(X[:,2], nu, rtol=1e-12, atol=1e-12))
-        if not np.any(mask): 
-            continue
-        rows.append(dict(v=nu, kind="Solver_vs_Exact", **_metrics_dict(y_exact[mask], y_solver[mask])))
-        rows.append(dict(v=nu, kind="NN_vs_Exact",     **_metrics_dict(y_exact[mask], y_pred[mask])))
-        rows.append(dict(v=nu, kind="NN_vs_Solver",    **_metrics_dict(y_solver[mask], y_pred[mask])))
-    df_by_v = pd.DataFrame(rows)
-    if save_pointwise:
-        df_point = pd.DataFrame({
-            "x": X[:,0], "t": X[:,1], "v": X[:,2],
-            "u_exact":  y_exact.ravel(),
-            "u_solver": y_solver.ravel(),
-            "u_nn":     y_pred.ravel(),
-            "err_solver": (y_solver - y_exact).ravel(),
-            "err_nn":     (y_pred   - y_exact).ravel(),
-        })
-    try:
-        with pd.ExcelWriter(path, engine="openpyxl") as writer:
-            df_overall.to_excel(writer, index=False, sheet_name="summary_overall")
-            df_by_v.to_excel(writer, index=False, sheet_name="summary_by_v")
-            if save_pointwise:
-                if len(df_point) <= 1_048_000:
-                    df_point.to_excel(writer, index=False, sheet_name="pointwise")
-                else:
-                    chunk = 1_000_000
-                    for i in range(0, len(df_point), chunk):
-                        df_point.iloc[i:i+chunk].to_excel(
-                            writer, index=False, sheet_name=f"pointwise_{i//chunk+1}"
-                        )
-        print(f"Excel file written: {path}")
-    except Exception as e:
-        print(f"Excel export failed ({e}). Saving as CSV files...")
-        df_overall.to_csv("summary_overall.csv", index=False)
-        df_by_v.to_csv("summary_by_v.csv", index=False)
-        if save_pointwise:
-            df_point.to_csv("errors_pointwise.csv", index=False)
-        print("CSV files: summary_overall.csv, summary_by_v.csv, errors_pointwise.csv")
 
 # -----------------------------------------------------------------------------
 # 15) Visualization utilities: exact solution, approximate solution, and error
@@ -887,7 +828,7 @@ if __name__ == "__main__":
         print_metrics("  Intermediate: NN vs Solver", y_solver, y_pred_all)
 
     # Final evaluation
-    print("\n[Final] Final evaluation and saving")
+    print("\n[Final] Final evaluation")
     Xt = torch.from_numpy(scaler.transform_X(X).astype(np.float32)).to(device)
     y_std_t = torch.from_numpy(scaler.y_std.astype(np.float32)).to(device)
     y_mu_t  = torch.from_numpy(scaler.y_mu.astype(np.float32)).to(device)
@@ -903,11 +844,6 @@ if __name__ == "__main__":
     torch.save(payload, "u_x_t_v_data_driven_adaptive.pt")
     print("Model saved -> u_x_t_v_data_driven_adaptive.pt")
 
-    # ---- Excel report ----
-    export_errors_to_excel(
-        X, exact_u_from_X(X), y_solver, y_pred, np.unique(X[:,2]),
-        path="errors_report_adaptive.xlsx", save_pointwise=True
-    )
 
     # ---- Final visualization ----
     # Only the requested figure is produced: exact solution, approximate
@@ -918,4 +854,6 @@ if __name__ == "__main__":
     )
     fig.savefig("solution_exact_approx_error_heatmap.png", dpi=300, bbox_inches="tight")
     plt.show()
+
+
 
